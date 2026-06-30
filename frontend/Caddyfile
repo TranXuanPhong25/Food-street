@@ -8,7 +8,11 @@
 
 	# Gọi API -> backend container (mạng nội bộ docker)
 	handle /api/* {
-		reverse_proxy backend:4003
+		reverse_proxy backend:4003 {
+			# nginx ngoài đã terminate TLS; báo Phoenix biết request gốc là HTTPS
+			# để force_ssl (prod.exs) KHÔNG redirect 301 loop.
+			header_up X-Forwarded-Proto https
+		}
 	}
 
 	# SPA fallback cho React Router
