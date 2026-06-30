@@ -1,15 +1,18 @@
-# Caddy serve frontend + proxy /api.
-# {$DOMAIN}: tên miền HOẶC địa chỉ IP (truyền qua docker-compose từ .env).
+# Caddy serve frontend qua HTTPS thẳng trên cổng WEB_PORT (mặc định 3200) + proxy /api.
+# KHÔNG dùng 80/443. Cổng đổi qua biến WEB_PORT (truyền từ docker-compose).
+#
+# {$DOMAIN}: tên miền HOẶC IP của server (từ .env).
 # {$CADDY_EXTRA_TLS}:
-#   - Có domain  -> để trống  => Caddy tự xin Let's Encrypt (HTTPS thật).
 #   - Chỉ có IP  -> "tls internal" => Caddy tự ký (HTTPS, trình duyệt cảnh báo).
+#   - Có domain  -> để trống. LƯU Ý: Let's Encrypt tự động cần cổng 80/443 để
+#     xác thực, nên với cổng tuỳ ý (3200) hãy dùng "tls internal" hoặc cung cấp
+#     chứng chỉ riêng: tls /path/cert.pem /path/key.pem
 {
-	# Khi truy cập bằng IP, client KHÔNG gửi SNI → coi như SNI = {$DOMAIN}
-	# để Caddy chọn đúng chứng chỉ (bắt buộc khi dùng HTTPS với IP).
+	# Truy cập bằng IP → client không gửi SNI → coi SNI = {$DOMAIN} để chọn đúng cert.
 	default_sni {$DOMAIN}
 }
 
-{$DOMAIN} {
+https://{$DOMAIN}:{$WEB_PORT:3200} {
 	{$CADDY_EXTRA_TLS}
 	encode zstd gzip
 

@@ -1,5 +1,5 @@
 # Dockerfile PRODUCTION cho frontend: build React (Vite) rồi serve bằng Caddy
-# (tự động HTTPS Let's Encrypt) + proxy /api sang backend.
+# (HTTP thường trên cổng WEB_PORT, mặc định 3200) + proxy /api sang backend.
 
 # ---- Tầng build ----
 FROM node:20-slim AS build
@@ -14,4 +14,4 @@ RUN npm run build
 FROM caddy:2-alpine AS app
 COPY --from=build /app/dist /srv
 COPY Caddyfile /etc/caddy/Caddyfile
-EXPOSE 80 443
+EXPOSE 3200
