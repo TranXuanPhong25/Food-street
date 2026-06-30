@@ -300,6 +300,7 @@ function GroupModal({
 function GroupDetail({ id, onBack }: { id: string; onBack: () => void }) {
   const [group, setGroup] = useState<GroupOrder | null>(null);
   const [msg, setMsg] = useState("");
+  const [exportOpen, setExportOpen] = useState(false);
 
   const load = () => api.admin.groupOrder(id).then((r) => setGroup(r.data));
   useEffect(() => {
@@ -347,6 +348,13 @@ function GroupDetail({ id, onBack }: { id: string; onBack: () => void }) {
             {group.note && <div className="small muted mt">📌 {group.note}</div>}
           </div>
           <div className="row">
+            <button
+              className="secondary"
+              onClick={() => setExportOpen(true)}
+              disabled={orders.length === 0}
+            >
+              📋 Xuất đơn
+            </button>
             {open && (
               <button className="success" onClick={close} disabled={pending === 0}>
                 Chốt đợt ({pending})
@@ -396,7 +404,80 @@ function GroupDetail({ id, onBack }: { id: string; onBack: () => void }) {
           ))}
         </div>
       )}
+
+      {exportOpen && <ExportModal group={group} onClose={() => setExportOpen(false)} />}
     </div>
+  );
+}
+
+// Gộp đơn của 1 đợt thành text gửi người bán: tên món + số lượng + ghi chú.
+function buildOrderExport(group: GroupOrder): string {
+  const orders = (group.orders || []).filter((o) => o.status !== "cancelled");
+
+  const agg: Record<string, number> = {};
+  const order_names: string[] = []; // giữ thứ tự món xuất hiện
+  let totalItems = 0;
+  let totalAmount = 0;
+  orders.forEach((o) => {
+    o.items.forEach((it) => {
+      if (!(it.item_name in agg)) order_names.push(it.item_name);
+      agg[it.item_name] = (agg[it.item_name] || 0) + it.quantity;
+      totalItems += it.quantity;
+    });
+    totalAmount += parseFloat(o.total_amount);
+  });
+
+  const lines: string[] = [];
+  lines.push(`🍜 ${group.title} — ${group.order_date}`);
+  lines.push("");
+  order_names.forEach((name) => lines.push(`${name} x${agg[name]}`));
+
+  const notes = orders.filter((o) => o.note && o.note.trim());
+  if (notes.length) {
+    lines.push("");
+    lines.push("Ghi chú:");
+    notes.forEach((o) => lines.push(`- ${o.user?.name || "?"}: ${o.note}`));
+  }
+
+  lines.push("");
+  lines.push(`Tổng: ${totalItems} món · ${formatVND(totalAmount)}`);
+  return lines.join("\n");
+}
+
+function ExportModal({ group, onClose }: { group: GroupOrder; onClose: () => void }) {
+  const text = buildOrderExport(group);
+  const [copied, setCopied] = useState(false);
+
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // Trình duyệt chặn clipboard (vd không phải HTTPS) → người dùng tự bôi đen copy.
+      setCopied(false);
+    }
+  };
+
+  return (
+    <Modal title="Xuất đơn gửi người bán" onClose={onClose}>
+      <p className="small muted" style={{ marginTop: 0 }}>
+        Copy nội dung dưới đây gửi cho người bán để đặt món.
+      </p>
+      <textarea
+        readOnly
+        value={text}
+        onFocus={(e) => e.currentTarget.select()}
+        rows={Math.min(20, text.split("\n").length + 1)}
+        style={{ fontFamily: "ui-monospace, monospace", fontSize: 13, resize: "vertical" }}
+      />
+      <div className="row mt" style={{ justifyContent: "flex-end" }}>
+        <button className="secondary" onClick={onClose}>
+          Đóng
+        </button>
+        <button onClick={copy}>{copied ? "✓ Đã copy" : "Copy nội dung"}</button>
+      </div>
+    </Modal>
   );
 }
 
