@@ -29,15 +29,24 @@ SSH_PORT="${SSH_PORT:-22}"
 APP_DIR="${APP_DIR:-/opt/food_street}"
 GIT_REMOTE="${GIT_REMOTE:-origin}"
 BRANCH="${BRANCH:-master}"
+# docker  -> scripts/deploy_remote_docker.sh (khuyến nghị)
+# release -> scripts/deploy_remote.sh (mix release trên host)
+DEPLOY_MODE="${DEPLOY_MODE:-docker}"
 SERVICE="${SERVICE:-food_street}"
 REMOTE_ENV_FILE="${REMOTE_ENV_FILE:-/etc/food_street/env}"
 
 REMOTE="${SSH_USER}@${SSH_HOST}"
 
+if [ "$DEPLOY_MODE" = "docker" ]; then
+  REMOTE_CMD="bash scripts/deploy_remote_docker.sh"
+else
+  REMOTE_CMD="FOOD_STREET_SERVICE='$SERVICE' FOOD_STREET_ENV='$REMOTE_ENV_FILE' bash scripts/deploy_remote.sh"
+fi
+
 echo "==> Push '$BRANCH' lên '$GIT_REMOTE' (để server kéo được)"
 git push "$GIT_REMOTE" "$BRANCH"
 
-echo "==> SSH $REMOTE  →  deploy $APP_DIR (nhánh $BRANCH)"
+echo "==> SSH $REMOTE  →  deploy $APP_DIR (nhánh $BRANCH, mode=$DEPLOY_MODE)"
 # Heredoc không trích dẫn: các biến dưới đây được nội suy ở MÁY DEV trước khi gửi.
 ssh -p "$SSH_PORT" "$REMOTE" bash -s <<EOF
 set -euo pipefail
@@ -46,7 +55,7 @@ echo "    git fetch + checkout + pull"
 git fetch --all --prune
 git checkout "$BRANCH"
 git pull --ff-only "$GIT_REMOTE" "$BRANCH"
-FOOD_STREET_SERVICE="$SERVICE" FOOD_STREET_ENV="$REMOTE_ENV_FILE" bash scripts/deploy_remote.sh
+$REMOTE_CMD
 EOF
 
 echo "==> Hoàn tất. Mở https://${PHX_HOST:-$SSH_HOST} để kiểm tra."

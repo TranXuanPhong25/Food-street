@@ -1,5 +1,60 @@
 # Deploy Food Street lên VPS Ubuntu
 
+Có 2 cách: **Docker (khuyến nghị)** hoặc mix release trực tiếp trên host.
+
+---
+
+# 🐳 Cách 1 — Docker (khuyến nghị)
+
+Toàn bộ chạy trong container, **không cần cài Elixir/Node/Postgres trên host**.
+Caddy tự cấp & gia hạn HTTPS (Let's Encrypt).
+
+```
+Internet :80/:443 ──► web (Caddy)  ──► file tĩnh React (dist/)
+                          └────► /api ──► backend (Phoenix release) :4003
+                                              └────► db (PostgreSQL, volume)
+```
+
+### Setup server — MỘT LẦN
+```bash
+git clone <repo> /opt/food_street
+cd /opt/food_street
+bash scripts/server_bootstrap_docker.sh   # cài Docker + mở firewall + tạo .env
+# Sửa .env: PHX_HOST, SECRET_KEY_BASE, DB_PASS  (secret: openssl rand -base64 64)
+```
+
+**TLS — chọn 1 trong .env:**
+- **Có domain:** `PHX_HOST=ten-mien.com`, để `CADDY_EXTRA_TLS` trống → HTTPS Let's Encrypt thật. Trỏ DNS A record về IP + mở cổng 80/443.
+- **Chỉ có IP:** `PHX_HOST=123.45.67.89`, `CADDY_EXTRA_TLS="tls internal"` → HTTPS **tự ký** (trình duyệt cảnh báo "không tin cậy", bấm bỏ qua). Không cần DNS.
+
+### Deploy lần đầu (trên server)
+```bash
+bash scripts/deploy_remote_docker.sh
+# Seed dữ liệu (1 lần):
+docker compose -f docker-compose.prod.yml exec backend /app/bin/seed
+```
+
+### Deploy các lần sau — từ máy dev
+```bash
+cp deploy.config.example deploy.config   # DEPLOY_MODE="docker" (mặc định)
+./deploy.sh
+```
+
+### Vận hành (Docker)
+```bash
+docker compose -f docker-compose.prod.yml ps
+docker compose -f docker-compose.prod.yml logs -f backend
+docker compose -f docker-compose.prod.yml logs -f web      # log Caddy / cấp SSL
+docker compose -f docker-compose.prod.yml down             # dừng
+```
+
+> File Docker: `docker-compose.prod.yml`, `backend/Dockerfile`, `frontend/Dockerfile`,
+> `frontend/Caddyfile`, `.env.prod.example`. Migration tự chạy khi container backend khởi động.
+
+---
+
+# 🖥️ Cách 2 — mix release trên host
+
 Frontend (React) + backend (Phoenix) chạy chung 1 server. Nginx serve file tĩnh
 `frontend/dist` và proxy `/api` sang Phoenix release (cổng 4003).
 
@@ -10,6 +65,7 @@ Internet :443 ──► Nginx ──► file tĩnh React (dist/)
 
 > **Quan trọng:** Elixir release không chạy cross-platform. Mọi build diễn ra
 > **trên server** (qua `scripts/deploy_remote.sh`), không build dưới máy macOS.
+> Đặt `DEPLOY_MODE="release"` trong `deploy.config` nếu dùng cách này.
 
 ---
 

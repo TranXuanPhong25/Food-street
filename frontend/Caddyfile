@@ -1,0 +1,22 @@
+# Caddy serve frontend + proxy /api.
+# {$DOMAIN}: tên miền HOẶC địa chỉ IP (truyền qua docker-compose từ .env).
+# {$CADDY_EXTRA_TLS}:
+#   - Có domain  -> để trống  => Caddy tự xin Let's Encrypt (HTTPS thật).
+#   - Chỉ có IP  -> "tls internal" => Caddy tự ký (HTTPS, trình duyệt cảnh báo).
+{$DOMAIN} {
+	{$CADDY_EXTRA_TLS}
+	encode zstd gzip
+
+	root * /srv
+
+	# Gọi API -> backend container (mạng nội bộ docker)
+	handle /api/* {
+		reverse_proxy backend:4003
+	}
+
+	# SPA fallback cho React Router
+	handle {
+		try_files {path} /index.html
+		file_server
+	}
+}

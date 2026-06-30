@@ -6,3 +6,6 @@
 
 # Cấu hình deploy chứa thông tin server — không commit.
 /deploy.config
+
+# Biến môi trường production (secret, DB pass) — không commit.
+/.env

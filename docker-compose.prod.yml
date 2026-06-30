@@ -1,0 +1,57 @@
+# Stack PRODUCTION (Docker). Frontend + backend + DB trên cùng 1 VPS.
+#   cp .env.prod.example .env   # rồi điền giá trị
+#   docker compose -f docker-compose.prod.yml up -d --build
+#
+# docker compose tự nạp file .env cùng thư mục để thay ${...} bên dưới.
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASS}
+      POSTGRES_DB: ${DB_NAME}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: ./backend
+    restart: unless-stopped
+    environment:
+      PHX_SERVER: "true"
+      PORT: "4003"
+      PHX_HOST: ${PHX_HOST}
+      SECRET_KEY_BASE: ${SECRET_KEY_BASE}
+      DATABASE_URL: ecto://${DB_USER}:${DB_PASS}@db/${DB_NAME}
+      POOL_SIZE: "10"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  web:
+    build:
+      context: ./frontend
+    restart: unless-stopped
+    environment:
+      DOMAIN: ${PHX_HOST}
+      CADDY_EXTRA_TLS: ${CADDY_EXTRA_TLS:-} # "tls internal" khi dùng IP; để trống khi có domain
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp" # HTTP/3
+    volumes:
+      - caddy_data:/data # giữ chứng chỉ TLS qua các lần restart
+      - caddy_config:/config
+    depends_on:
+      - backend
+
+volumes:
+  pgdata:
+  caddy_data:
+  caddy_config:
