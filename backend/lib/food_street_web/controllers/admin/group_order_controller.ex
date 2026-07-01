@@ -26,11 +26,11 @@ defmodule FoodStreetWeb.Admin.GroupOrderController do
   def create(conn, params) do
     admin = Guardian.Plug.current_resource(conn)
 
-    # Bắt buộc có Panchat token: không có thì không cho mở đợt (vì không gửi
-    # được lời mời ăn sáng vào channel).
-    if Settings.panchat_configured?() do
+    # Bắt buộc admin đã cấu hình Panchat token CỦA MÌNH: không có thì không cho mở
+    # đợt (vì lời mời được gửi bằng chính token của admin tạo đợt).
+    if Settings.panchat_configured?(admin.id) do
       with {:ok, go} <- Ordering.create_group_order(params, admin) do
-        panchat = send_invite(go)
+        panchat = send_invite(go, Settings.panchat_token(admin.id))
         conn |> put_status(:created) |> json(%{data: shape(go), panchat: panchat})
       end
     else
@@ -38,15 +38,16 @@ defmodule FoodStreetWeb.Admin.GroupOrderController do
       |> put_status(:unprocessable_entity)
       |> json(%{
         error: "panchat_token_missing",
-        message: "Chưa cấu hình Panchat token. Vào tab Cài đặt để nhập token trước khi tạo đợt."
+        message:
+          "Bạn chưa cấu hình Panchat token của mình. Vào tab Cài đặt để nhập token trước khi tạo đợt."
       })
     end
   end
 
   # Gửi lời mời vào Panchat (best-effort): lỗi mạng không rollback đợt đã tạo,
   # chỉ báo lại trạng thái để admin biết.
-  defp send_invite(go) do
-    case Panchat.send_breakfast_invite(go) do
+  defp send_invite(go, token) do
+    case Panchat.send_breakfast_invite(go, token) do
       {:ok, _message} ->
         %{sent: true}
 

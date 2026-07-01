@@ -1382,9 +1382,10 @@ function SettingsTab() {
       <div className="card">
         <h2>Panchat</h2>
         <p className="small muted">
-          Token để gửi lời mời ăn sáng vào channel Panchat (workspace 4 / channel
-          11813). <strong>Bắt buộc phải có token</strong> thì admin mới tạo được
-          đợt đặt nhóm.
+          Token Panchat <strong>của riêng bạn</strong> để gửi lời mời ăn sáng vào
+          channel (workspace 4 / channel 11813). Mỗi admin dùng token riêng — đợt
+          do bạn tạo sẽ gửi bằng token này.{" "}
+          <strong>Bắt buộc phải có token</strong> thì bạn mới tạo được đợt đặt nhóm.
         </p>
 
         {settings && (

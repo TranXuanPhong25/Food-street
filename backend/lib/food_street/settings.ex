@@ -1,9 +1,9 @@
 defmodule FoodStreet.Settings do
   @moduledoc """
-  Cấu hình toàn cục dạng key-value lưu trong DB (bảng `settings`).
+  Cấu hình dạng key-value lưu trong DB (bảng `settings`), **gắn theo từng user**.
 
-  Hiện dùng để lưu Panchat token do admin nhập qua UI. Token này cần thiết để
-  gửi lời mời ăn sáng vào channel Panchat (xem `FoodStreet.Panchat`).
+  Dùng để lưu Panchat token do mỗi admin tự nhập qua UI. Token của admin nào chỉ
+  áp cho đợt do admin đó tạo (xem `FoodStreet.Panchat`) — không ảnh hưởng admin khác.
   """
 
   import Ecto.Query, warn: false
@@ -12,33 +12,33 @@ defmodule FoodStreet.Settings do
 
   @panchat_token_key "panchat_token"
 
-  @doc "Đọc giá trị 1 setting theo key, trả `default` nếu chưa có."
-  def get_value(key, default \\ nil) do
-    case Repo.get_by(Setting, key: key) do
+  @doc "Đọc giá trị 1 setting của `user_id` theo key, trả `default` nếu chưa có."
+  def get_value(user_id, key, default \\ nil) do
+    case Repo.get_by(Setting, user_id: user_id, key: key) do
       nil -> default
       %Setting{value: value} -> value
     end
   end
 
-  @doc "Upsert 1 setting (tạo mới hoặc cập nhật value theo key)."
-  def put_value(key, value) do
+  @doc "Upsert 1 setting của `user_id` (tạo mới hoặc cập nhật value theo (user_id, key))."
+  def put_value(user_id, key, value) do
     %Setting{}
-    |> Setting.changeset(%{key: key, value: value})
+    |> Setting.changeset(%{user_id: user_id, key: key, value: value})
     |> Repo.insert(
       on_conflict: [set: [value: value, updated_at: DateTime.utc_now(:second)]],
-      conflict_target: :key
+      conflict_target: [:user_id, :key]
     )
   end
 
-  @doc "Panchat token hiện tại (hoặc nil nếu chưa cấu hình)."
-  def panchat_token, do: get_value(@panchat_token_key)
+  @doc "Panchat token của `user_id` (hoặc nil nếu chưa cấu hình)."
+  def panchat_token(user_id), do: get_value(user_id, @panchat_token_key)
 
-  @doc "Lưu Panchat token."
-  def put_panchat_token(token), do: put_value(@panchat_token_key, token)
+  @doc "Lưu Panchat token cho `user_id`."
+  def put_panchat_token(user_id, token), do: put_value(user_id, @panchat_token_key, token)
 
-  @doc "Đã cấu hình Panchat token hay chưa."
-  def panchat_configured? do
-    case panchat_token() do
+  @doc "`user_id` đã cấu hình Panchat token hay chưa."
+  def panchat_configured?(user_id) do
+    case panchat_token(user_id) do
       nil -> false
       "" -> false
       token -> String.trim(token) != ""

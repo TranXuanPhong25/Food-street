@@ -6,8 +6,9 @@ defmodule FoodStreet.Panchat do
   channel "Pancake Food Street" (workspace 4 / channel 11813), tag `@all` kèm
   link để mọi người vào đặt món.
 
-  Token lấy từ `FoodStreet.Settings.panchat_token/0` (admin nhập qua UI). Endpoint
-  và payload tham chiếu theo Panchat MCP:
+  Token của admin tạo đợt (mỗi admin một token riêng — xem
+  `FoodStreet.Settings.panchat_token/1`) được truyền vào khi gửi. Endpoint và
+  payload tham chiếu theo Panchat MCP:
 
       POST https://pancakework.vn/api/workspaces/4/channels/11813/messages?token=<TOKEN>
       body: %{workspace_id, channel_id, channel_thread_id: nil, message,
@@ -16,7 +17,6 @@ defmodule FoodStreet.Panchat do
 
   require Logger
 
-  alias FoodStreet.Settings
   alias FoodStreet.Ordering.GroupOrder
 
   @base_url "https://pancakework.vn"
@@ -24,13 +24,14 @@ defmodule FoodStreet.Panchat do
   @channel_id 11_813
 
   @doc """
-  Gửi lời mời ăn sáng cho 1 đợt đặt nhóm vào channel Panchat.
+  Gửi lời mời ăn sáng cho 1 đợt đặt nhóm vào channel Panchat bằng `token` của
+  admin tạo đợt.
 
   Trả `{:ok, message}` khi gửi thành công, `{:error, reason}` nếu thiếu token
   hoặc Panchat trả lỗi.
   """
-  def send_breakfast_invite(%GroupOrder{} = group_order) do
-    case Settings.panchat_token() do
+  def send_breakfast_invite(%GroupOrder{} = group_order, token) do
+    case token do
       nil ->
         {:error, :panchat_token_missing}
 
