@@ -8,8 +8,30 @@ defmodule FoodStreetWeb.Admin.FundController do
   action_fallback FoodStreetWeb.FallbackController
 
   def index(conn, _params) do
-    json(conn, %{data: Fund.list_transactions()})
+    data = Enum.map(Fund.list_transactions(), &shape/1)
+    json(conn, %{data: data})
   end
+
+  # Gắn kèm tên người dùng + người thực hiện vào giao dịch để admin xem.
+  defp shape(tx) do
+    tx
+    |> Map.take([
+      :id,
+      :user_id,
+      :amount,
+      :type,
+      :description,
+      :balance_after,
+      :order_id,
+      :created_by_id,
+      :inserted_at
+    ])
+    |> Map.put(:user, user_map(tx.user))
+    |> Map.put(:created_by, user_map(tx.created_by))
+  end
+
+  defp user_map(%{id: id, name: name}), do: %{id: id, name: name}
+  defp user_map(_), do: nil
 
   def deposit(conn, %{"user_id" => user_id, "amount" => amount} = params) do
     admin = Guardian.Plug.current_resource(conn)
