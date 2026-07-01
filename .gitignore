@@ -9,3 +9,6 @@
 
 # Biến môi trường production (secret, DB pass) — không commit.
 /.env
+
+# Playwright MCP artifacts
+.playwright-mcp/

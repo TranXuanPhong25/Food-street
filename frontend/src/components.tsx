@@ -15,12 +15,9 @@ export function Header({ subtitle }: { subtitle?: string }) {
   return (
     <header className="app-header">
       <div className="brand">
-        🍜 Food Street{" "}
-        {subtitle && (
-          <span className="muted small" style={{ fontWeight: 500 }}>
-            · {subtitle}
-          </span>
-        )}
+        <span className="brand-logo">C</span>
+        <span className="brand-name">Pancake</span>
+        {subtitle && <span className="brand-sub">📍 {subtitle}</span>}
       </div>
       <div className="header-user">
         {isAdmin &&
