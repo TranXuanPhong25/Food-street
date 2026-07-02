@@ -80,6 +80,29 @@ defmodule FoodStreet.Panchat do
     end
   end
 
+  @doc "Gửi tin báo huỷ/xoá đợt, bằng `token` của admin thực hiện."
+  def send_group_deleted(%GroupOrder{} = go, token) do
+    case token do
+      nil ->
+        {:error, :panchat_token_missing}
+
+      token ->
+        if String.trim(token) == "" do
+          {:error, :panchat_token_missing}
+        else
+          send_channel_message(token, deleted_text(go))
+        end
+    end
+  end
+
+  @doc "Nội dung tin báo xoá đợt (thuần, không gọi mạng)."
+  def deleted_text(%GroupOrder{} = go) do
+    """
+    ❌ Đã huỷ đợt đặt: "#{go.title}" (📅 #{go.order_date})
+    """
+    |> String.trim_trailing()
+  end
+
   @doc "Nội dung tin tổng kết khi chốt đợt (thuần, không gọi mạng)."
   def close_text(%GroupOrder{} = go, count, total) do
     link = "#{frontend_url()}/app?group=#{go.id}"

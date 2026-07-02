@@ -58,6 +58,23 @@ defmodule FoodStreet.PanchatTest do
     end
   end
 
+  describe "deleted_text/1 và send_group_deleted/2" do
+    test "deleted_text chứa tiêu đề và ngày" do
+      go = %GroupOrder{id: "abc", title: "Sáng T2", order_date: ~D[2026-07-02]}
+      text = Panchat.deleted_text(go)
+
+      assert text =~ "Sáng T2"
+      assert text =~ "2026-07-02"
+    end
+
+    test "send_group_deleted lỗi khi thiếu token, không gọi mạng" do
+      go = %GroupOrder{id: "abc", title: "X", order_date: ~D[2026-07-02]}
+
+      assert Panchat.send_group_deleted(go, nil) == {:error, :panchat_token_missing}
+      assert Panchat.send_group_deleted(go, "  ") == {:error, :panchat_token_missing}
+    end
+  end
+
   describe "build_body/1" do
     test "builds the Panchat payload (uuid key, @all via mention attachment)" do
       body = Panchat.build_body("hello")

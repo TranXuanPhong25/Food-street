@@ -74,14 +74,29 @@ defmodule FoodStreetWeb.Admin.GroupOrderController do
   end
 
   def delete(conn, %{"id" => id}) do
+    admin = Guardian.Plug.current_resource(conn)
+
     case Ordering.get_group_order(id) do
       nil ->
         {:error, :not_found}
 
       go ->
         with {:ok, _} <- Ordering.delete_group_order(go) do
+          notify_deleted(go, admin)
           send_resp(conn, :no_content, "")
         end
+    end
+  end
+
+  # Báo Panchat khi xoá đợt (best-effort, token admin thực hiện).
+  defp notify_deleted(go, admin) do
+    case Panchat.send_group_deleted(go, Settings.panchat_token(admin.id)) do
+      {:ok, _} ->
+        :ok
+
+      {:error, reason} ->
+        Logger.warning("Không gửi được tin xoá đợt #{go.id}: #{inspect(reason)}")
+        :ok
     end
   end
 
