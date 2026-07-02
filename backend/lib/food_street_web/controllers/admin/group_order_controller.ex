@@ -94,8 +94,30 @@ defmodule FoodStreetWeb.Admin.GroupOrderController do
 
       go ->
         with {:ok, result} <- Ordering.close_group_order(go, admin) do
-          json(conn, %{data: %{confirmed: result.confirmed, group_order: shape(result.group)}})
+          panchat = notify_closed(result.group, result.confirmed, admin)
+
+          json(conn, %{
+            data: %{confirmed: result.confirmed, group_order: shape(result.group)},
+            panchat: panchat
+          })
         end
+    end
+  end
+
+  # Gửi tin tổng kết vào Panchat khi chốt đợt (best-effort, token admin bấm chốt).
+  defp notify_closed(group, count, admin) do
+    total =
+      Enum.reduce(group.orders || [], Decimal.new(0), fn o, acc ->
+        if o.status == "cancelled", do: acc, else: Decimal.add(acc, o.total_amount)
+      end)
+
+    case Panchat.send_group_closed_summary(group, count, total, Settings.panchat_token(admin.id)) do
+      {:ok, _} ->
+        %{sent: true}
+
+      {:error, reason} ->
+        Logger.warning("Không gửi được tin chốt đợt #{group.id}: #{inspect(reason)}")
+        %{sent: false, error: format_error(reason)}
     end
   end
 

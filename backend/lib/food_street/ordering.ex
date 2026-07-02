@@ -198,9 +198,10 @@ defmodule FoodStreet.Ordering do
 
     with %GroupOrder{} = go <- Repo.get(GroupOrder, group_order_id),
          :ok <- ensure_open(go),
+         existing = get_user_order_in_group(user.id, go.id),
+         :ok <- ensure_editable(existing),
          {:ok, items} <- build_items(raw_items, go.category_id) do
       total = Enum.reduce(items, Decimal.new(0), &Decimal.add(&2, &1.subtotal))
-      existing = get_user_order_in_group(user.id, go.id)
       base = existing || %Order{}
 
       changeset =
@@ -226,6 +227,36 @@ defmodule FoodStreet.Ordering do
 
   defp ensure_open(%GroupOrder{status: "open"}), do: :ok
   defp ensure_open(%GroupOrder{}), do: {:error, :group_not_open}
+
+  # Chỉ sửa được đơn chưa chốt. `nil` = chưa có đơn (đang tạo mới) nên hợp lệ.
+  defp ensure_editable(nil), do: :ok
+  defp ensure_editable(%Order{status: "pending"}), do: :ok
+  defp ensure_editable(%Order{}), do: {:error, :order_not_editable}
+
+  @doc """
+  Admin sửa 1 đơn bất kỳ khi đơn chưa chốt và đợt còn mở.
+
+  `attrs`: %{"items" => [...], "note" => ...} (như đặt đơn của user).
+  """
+  def update_order(%Order{} = order, attrs) do
+    order = Repo.preload(order, [:group_order, :items])
+    raw_items = attrs["items"] || attrs[:items] || []
+    note = attrs["note"] || attrs[:note]
+
+    with :ok <- ensure_editable(order),
+         :ok <- ensure_open(order.group_order),
+         {:ok, items} <- build_items(raw_items, order.group_order.category_id) do
+      total = Enum.reduce(items, Decimal.new(0), &Decimal.add(&2, &1.subtotal))
+
+      order
+      |> Order.changeset(%{"note" => note, "total_amount" => total, "items" => items})
+      |> Repo.update()
+      |> case do
+        {:ok, updated} -> {:ok, Repo.preload(updated, [:items, :user], force: true)}
+        error -> error
+      end
+    end
+  end
 
   # Snapshot tên + giá; chỉ nhận món còn bán và đúng danh mục của đợt.
   defp build_items([], _category_id), do: {:error, :empty_items}

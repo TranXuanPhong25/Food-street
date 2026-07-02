@@ -64,6 +64,59 @@ defmodule FoodStreet.Panchat do
   end
 
   @doc """
+  Gửi tin tổng kết (gọn) khi admin chốt cả đợt, bằng `token` của admin bấm chốt.
+  """
+  def send_group_closed_summary(%GroupOrder{} = go, count, total, token) do
+    case token do
+      nil ->
+        {:error, :panchat_token_missing}
+
+      token ->
+        if String.trim(token) == "" do
+          {:error, :panchat_token_missing}
+        else
+          send_channel_message(token, close_text(go, count, total))
+        end
+    end
+  end
+
+  @doc "Nội dung tin tổng kết khi chốt đợt (thuần, không gọi mạng)."
+  def close_text(%GroupOrder{} = go, count, total) do
+    link = "#{frontend_url()}/app?group=#{go.id}"
+
+    """
+    ✅ Đã chốt đợt: "#{go.title}" (📅 #{go.order_date})
+    #{count} đơn · tổng #{format_vnd(total)} 👉 #{link}
+    """
+    |> String.trim_trailing()
+  end
+
+  # Định dạng tiền kiểu VN (vd 90000 -> "90.000đ"), nhận Decimal/số/nil.
+  defp format_vnd(nil), do: "0đ"
+
+  defp format_vnd(amount) do
+    int =
+      amount
+      |> to_string()
+      |> String.split(".")
+      |> hd()
+
+    grouped =
+      int
+      |> String.replace_leading("-", "")
+      |> String.graphemes()
+      |> Enum.reverse()
+      |> Enum.chunk_every(3)
+      |> Enum.map(&Enum.reverse/1)
+      |> Enum.reverse()
+      |> Enum.map(&Enum.join/1)
+      |> Enum.join(".")
+
+    sign = if String.starts_with?(int, "-"), do: "-", else: ""
+    "#{sign}#{grouped}đ"
+  end
+
+  @doc """
   Gửi 1 tin gốc bất kỳ vào channel Panchat cố định.
 
   Tách `build_body/1` ra để test thuần được payload mà không cần gọi mạng.

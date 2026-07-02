@@ -70,6 +70,7 @@ defmodule FoodStreetWeb.Router do
 
     get "/orders", OrderController, :index
     post "/orders/:id/confirm", OrderController, :confirm
+    put "/orders/:id", OrderController, :update
 
     get "/stats", StatsController, :summary
     get "/stats/revenue", StatsController, :revenue

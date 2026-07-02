@@ -318,6 +318,17 @@ export const api = {
       }),
     deleteGroupOrder: (id: string) =>
       request<void>(`/admin/group_orders/${id}`, { method: "DELETE" }),
+    updateOrder: (
+      id: string,
+      payload: {
+        note?: string;
+        items: { menu_item_id: string; quantity: number; note?: string }[];
+      }
+    ) =>
+      request<{ data: Order }>(`/admin/orders/${id}`, {
+        method: "PUT",
+        body: JSON.stringify(payload),
+      }),
     closeGroupOrder: (id: string) =>
       request<{ data: { confirmed: number; group_order: GroupOrder } }>(
         `/admin/group_orders/${id}/close`,

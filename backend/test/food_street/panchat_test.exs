@@ -36,6 +36,28 @@ defmodule FoodStreet.PanchatTest do
     end
   end
 
+  describe "close_text/3 và send_group_closed_summary/4" do
+    test "close_text chứa tiêu đề, ngày, số đơn và tổng tiền định dạng VN" do
+      go = %GroupOrder{id: "abc", title: "Sáng T2", order_date: ~D[2026-07-02]}
+      text = Panchat.close_text(go, 3, Decimal.new("90000"))
+
+      assert text =~ "Sáng T2"
+      assert text =~ "2026-07-02"
+      assert text =~ "3 đơn"
+      assert text =~ "90.000đ"
+    end
+
+    test "send_group_closed_summary lỗi khi thiếu token, không gọi mạng" do
+      go = %GroupOrder{id: "abc", title: "X", order_date: ~D[2026-07-02]}
+
+      assert Panchat.send_group_closed_summary(go, 1, Decimal.new("1000"), nil) ==
+               {:error, :panchat_token_missing}
+
+      assert Panchat.send_group_closed_summary(go, 1, Decimal.new("1000"), "  ") ==
+               {:error, :panchat_token_missing}
+    end
+  end
+
   describe "build_body/1" do
     test "builds the Panchat payload (uuid key, @all via mention attachment)" do
       body = Panchat.build_body("hello")

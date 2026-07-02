@@ -48,4 +48,17 @@ defmodule FoodStreetWeb.Admin.OrderController do
         end
     end
   end
+
+  # Admin sửa 1 đơn khi chưa chốt (đổi món/số lượng/ghi chú).
+  def update(conn, %{"id" => id} = params) do
+    case Ordering.get_order(id) do
+      nil ->
+        {:error, :not_found}
+
+      order ->
+        with {:ok, updated} <- Ordering.update_order(order, params) do
+          json(conn, %{data: embed_user(updated)})
+        end
+    end
+  end
 end

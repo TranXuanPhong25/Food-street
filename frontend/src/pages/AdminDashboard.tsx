@@ -8,6 +8,7 @@ import {
   type FundTransaction,
   type GroupOrder,
   type MenuItem,
+  type Order,
   type OrderSchedule,
   type PanchatSettings,
   type Stats,
@@ -319,6 +320,7 @@ function GroupDetail({ id, onBack }: { id: string; onBack: () => void }) {
   const [group, setGroup] = useState<GroupOrder | null>(null);
   const [msg, setMsg] = useState("");
   const [exportOpen, setExportOpen] = useState(false);
+  const [editOrder, setEditOrder] = useState<Order | null>(null);
 
   const load = () => api.admin.groupOrder(id).then((r) => setGroup(r.data));
   useEffect(() => {
@@ -402,6 +404,11 @@ function GroupDetail({ id, onBack }: { id: string; onBack: () => void }) {
                   <span className="muted small">{o.user?.email}</span>
                 </div>
                 <div className="row">
+                  {open && o.status === "pending" && (
+                    <button className="secondary" onClick={() => setEditOrder(o)}>
+                      ✏️ Sửa
+                    </button>
+                  )}
                   <StatusBadge status={o.status} />
                   <strong>{formatVND(o.total_amount)}</strong>
                 </div>
@@ -431,7 +438,162 @@ function GroupDetail({ id, onBack }: { id: string; onBack: () => void }) {
       )}
 
       {exportOpen && <ExportModal group={group} onClose={() => setExportOpen(false)} />}
+
+      {editOrder && (
+        <AdminEditOrderModal
+          order={editOrder}
+          categoryId={group.category?.id || null}
+          onClose={() => setEditOrder(null)}
+          onSaved={() => {
+            setEditOrder(null);
+            load();
+          }}
+        />
+      )}
     </div>
+  );
+}
+
+function AdminEditOrderModal({
+  order,
+  categoryId,
+  onClose,
+  onSaved,
+}: {
+  order: Order;
+  categoryId: string | null;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [menu, setMenu] = useState<MenuItem[]>([]);
+  const [cart, setCart] = useState<Record<string, number>>(() =>
+    Object.fromEntries(order.items.map((it) => [it.menu_item_id, it.quantity]))
+  );
+  const [itemNotes, setItemNotes] = useState<Record<string, string>>(() =>
+    Object.fromEntries(
+      order.items.filter((it) => it.note).map((it) => [it.menu_item_id, it.note as string])
+    )
+  );
+  const [note, setNote] = useState(order.note || "");
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    api.admin
+      .menu()
+      .then((r) =>
+        setMenu(r.data.filter((m) => m.available && m.category_id === categoryId))
+      );
+  }, [categoryId]);
+
+  const setQty = (id: string, q: number) =>
+    setCart((c) => {
+      const next = { ...c };
+      if (q <= 0) delete next[id];
+      else next[id] = q;
+      return next;
+    });
+
+  const cartCount = Object.values(cart).reduce((a, b) => a + b, 0);
+  const total = menu.reduce(
+    (acc, m) => acc + parseFloat(m.price) * (cart[m.id] || 0),
+    0
+  );
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    if (cartCount === 0) {
+      setError("Hãy chọn ít nhất 1 món.");
+      return;
+    }
+    setBusy(true);
+    try {
+      await api.admin.updateOrder(order.id, {
+        note: note.trim() || undefined,
+        items: Object.entries(cart).map(([menu_item_id, quantity]) => ({
+          menu_item_id,
+          quantity,
+          note: itemNotes[menu_item_id]?.trim() || undefined,
+        })),
+      });
+      onSaved();
+    } catch (err: any) {
+      setError(err.message || "Lưu thất bại");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Modal title={`Sửa đơn: ${order.user?.name || "?"}`} onClose={onClose}>
+      {error && <div className="alert error">{error}</div>}
+      <form onSubmit={submit}>
+        <div className="grid">
+          {menu.map((m) => (
+            <div key={m.id} className="row between">
+              <div>
+                {m.name} <span className="muted small">{formatVND(m.price)}</span>
+                {cart[m.id] > 0 && (
+                  <input
+                    style={{ display: "block", marginTop: 4, maxWidth: 240 }}
+                    value={itemNotes[m.id] ?? ""}
+                    onChange={(e) =>
+                      setItemNotes((n) => ({ ...n, [m.id]: e.target.value }))
+                    }
+                    placeholder="Ghi chú món (tuỳ chọn)"
+                  />
+                )}
+              </div>
+              <div className="row" style={{ gap: 6 }}>
+                <button
+                  type="button"
+                  className="secondary"
+                  onClick={() => setQty(m.id, (cart[m.id] || 0) - 1)}
+                >
+                  −
+                </button>
+                <span style={{ minWidth: 20, textAlign: "center" }}>
+                  {cart[m.id] || 0}
+                </span>
+                <button
+                  type="button"
+                  className="secondary"
+                  onClick={() => setQty(m.id, (cart[m.id] || 0) + 1)}
+                >
+                  +
+                </button>
+              </div>
+            </div>
+          ))}
+          {menu.length === 0 && (
+            <p className="small muted">Danh mục này chưa có món khả dụng.</p>
+          )}
+        </div>
+
+        <div className="field mt">
+          <label>Ghi chú chung</label>
+          <input
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            placeholder="VD: giao lúc 8h"
+          />
+        </div>
+
+        <div className="row between mt">
+          <span className="muted small">{cartCount} món</span>
+          <strong>{formatVND(String(total))}</strong>
+        </div>
+        <div className="row" style={{ justifyContent: "flex-end" }}>
+          <button type="button" className="secondary" onClick={onClose}>
+            Hủy
+          </button>
+          <button type="submit" disabled={busy || cartCount === 0}>
+            {busy ? "Đang lưu…" : "Lưu đơn"}
+          </button>
+        </div>
+      </form>
+    </Modal>
   );
 }
 
