@@ -97,9 +97,13 @@ function StatsTab() {
         <Stat label="Tổng quỹ" value={formatVND(stats.fund_total)} accent />
         <Stat label="Doanh thu (đã chốt)" value={formatVND(stats.revenue_today)} accent />
       </div>
-      <div className="grid grid-4">
+      <div
+        className="grid"
+        style={{ gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))" }}
+      >
         <Stat label="Nạp trong ngày" value={formatVND(stats.fund_deposited)} />
         <Stat label="Chi trong ngày" value={formatVND(stats.fund_spent)} />
+        <Stat label="Điều chỉnh trong ngày" value={formatVND(stats.fund_adjusted)} />
         <Stat label="Người âm quỹ" value={stats.negative_count} warn={stats.negative_count > 0} />
         <Stat
           label="Tổng đang nợ"
@@ -279,10 +283,14 @@ function ReportTab() {
             <Stat label="Doanh thu (đã chốt)" value={formatVND(data.revenue)} accent />
           </div>
 
-          <div className="grid grid-4">
+          <div
+            className="grid"
+            style={{ gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))" }}
+          >
             <Stat label="Tổng quỹ hiện tại" value={formatVND(data.fund_total)} accent />
             <Stat label="Nạp trong kỳ" value={formatVND(data.fund_deposited)} />
             <Stat label="Chi trong kỳ" value={formatVND(data.fund_spent)} />
+            <Stat label="Điều chỉnh trong kỳ" value={formatVND(data.fund_adjusted)} />
             <Stat
               label={`Đang nợ · ${data.negative_count} người`}
               value={formatVND(data.negative_debt)}

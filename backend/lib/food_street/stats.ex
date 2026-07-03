@@ -22,6 +22,7 @@ defmodule FoodStreet.Stats do
       fund_total: Repo.aggregate(User, :sum, :balance) || Decimal.new(0),
       fund_deposited: flow.deposited,
       fund_spent: flow.spent,
+      fund_adjusted: flow.adjusted,
       negative_count: neg.count,
       negative_debt: neg.debt,
       orders_today: count_orders(date, date),
@@ -52,6 +53,7 @@ defmodule FoodStreet.Stats do
       fund_total: Repo.aggregate(User, :sum, :balance) || Decimal.new(0),
       fund_deposited: flow.deposited,
       fund_spent: flow.spent,
+      fund_adjusted: flow.adjusted,
       negative_count: neg.count,
       negative_debt: neg.debt,
       top_items: top_items(from_date, to_date)
@@ -82,7 +84,20 @@ defmodule FoodStreet.Stats do
           select: coalesce(sum(t.amount), 0)
       )
 
-    %{deposited: as_decimal(deposited), spent: spent |> as_decimal() |> Decimal.abs()}
+    # Điều chỉnh có dấu (±): giữ nguyên dấu để `nạp - chi + điều_chỉnh` cân bằng.
+    adjusted =
+      Repo.one(
+        from t in FundTransaction,
+          where:
+            t.type == "adjustment" and t.inserted_at >= ^start_utc and t.inserted_at < ^end_utc,
+          select: coalesce(sum(t.amount), 0)
+      )
+
+    %{
+      deposited: as_decimal(deposited),
+      spent: spent |> as_decimal() |> Decimal.abs(),
+      adjusted: as_decimal(adjusted)
+    }
   end
 
   # Số người và tổng số tiền đang âm quỹ (trả về nợ dưới dạng số dương).
