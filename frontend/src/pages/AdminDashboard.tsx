@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   api,
   formatVND,
@@ -1025,11 +1025,21 @@ function CategoryModal({
 }
 
 // ---------- Thực đơn ----------
+const MENU_PER_PAGE = 10;
+// Giá trị sentinel cho lựa chọn "món chưa gán danh mục" trong bộ lọc.
+const UNCATEGORIZED = "__none__";
+
 function MenuTab() {
   const [items, setItems] = useState<MenuItem[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [editing, setEditing] = useState<MenuItem | null>(null);
   const [creating, setCreating] = useState(false);
+
+  // Tìm kiếm / lọc / phân trang (xử lý client-side vì API trả toàn bộ thực đơn).
+  const [search, setSearch] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
+  const [page, setPage] = useState(1);
 
   const load = () => {
     api.admin.menu().then((r) => setItems(r.data));
@@ -1048,12 +1058,90 @@ function MenuTab() {
     load();
   };
 
+  // Kết quả sau khi áp dụng tìm kiếm + lọc.
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return items.filter((m) => {
+      if (
+        q &&
+        !m.name.toLowerCase().includes(q) &&
+        !(m.description || "").toLowerCase().includes(q)
+      )
+        return false;
+      if (categoryFilter === UNCATEGORIZED) {
+        if (m.category_id) return false;
+      } else if (categoryFilter && m.category_id !== categoryFilter) {
+        return false;
+      }
+      if (statusFilter === "1" && !m.available) return false;
+      if (statusFilter === "0" && m.available) return false;
+      return true;
+    });
+  }, [items, search, categoryFilter, statusFilter]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / MENU_PER_PAGE));
+  // Chốt trang trong khoảng hợp lệ (bộ lọc có thể làm số trang giảm).
+  const currentPage = Math.min(page, totalPages);
+  const paged = filtered.slice(
+    (currentPage - 1) * MENU_PER_PAGE,
+    currentPage * MENU_PER_PAGE
+  );
+
+  // Đổi tìm kiếm/lọc → về trang 1.
+  useEffect(() => {
+    setPage(1);
+  }, [search, categoryFilter, statusFilter]);
+
+  const hasFilter = search || categoryFilter || statusFilter;
+  const clearFilters = () => {
+    setSearch("");
+    setCategoryFilter("");
+    setStatusFilter("");
+  };
+
   return (
     <div className="grid">
       <div className="row between">
         <h2 style={{ margin: 0 }}>Thực đơn ({items.length})</h2>
         <button onClick={() => setCreating(true)}>+ Thêm món</button>
       </div>
+
+      <div className="row wrap" style={{ gap: 8, alignItems: "flex-end" }}>
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="🔍 Tìm theo tên hoặc mô tả…"
+          style={{ flex: 1, minWidth: 200 }}
+        />
+        <select
+          value={categoryFilter}
+          onChange={(e) => setCategoryFilter(e.target.value)}
+          style={{ width: "auto", maxWidth: 200 }}
+        >
+          <option value="">Tất cả danh mục</option>
+          {categories.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.name}
+            </option>
+          ))}
+          <option value={UNCATEGORIZED}>— Chưa phân loại —</option>
+        </select>
+        <select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+          style={{ width: "auto" }}
+        >
+          <option value="">Tất cả trạng thái</option>
+          <option value="1">Còn bán</option>
+          <option value="0">Ẩn</option>
+        </select>
+        {hasFilter && (
+          <button className="ghost small" onClick={clearFilters}>
+            ✕ Xóa lọc
+          </button>
+        )}
+      </div>
+
       <div className="card" style={{ padding: 0, overflow: "hidden" }}>
         <table>
           <thead>
@@ -1066,7 +1154,7 @@ function MenuTab() {
             </tr>
           </thead>
           <tbody>
-            {items.map((m) => (
+            {paged.map((m) => (
               <tr key={m.id}>
                 <td>
                   <strong>{m.name}</strong>
@@ -1097,7 +1185,42 @@ function MenuTab() {
             ))}
           </tbody>
         </table>
+        {filtered.length === 0 && (
+          <p className="muted" style={{ padding: 16, margin: 0 }}>
+            {hasFilter ? "Không có món khớp bộ lọc." : "Chưa có món nào."}
+          </p>
+        )}
       </div>
+
+      {filtered.length > 0 && (
+        <div className="row between">
+          <span className="small muted">
+            {filtered.length} món
+            {hasFilter ? ` (lọc từ ${items.length})` : ""}
+          </span>
+          {totalPages > 1 && (
+            <div className="row" style={{ gap: 8, alignItems: "center" }}>
+              <button
+                className="secondary small"
+                disabled={currentPage <= 1}
+                onClick={() => setPage((p) => p - 1)}
+              >
+                ← Trước
+              </button>
+              <span className="small muted">
+                Trang {currentPage}/{totalPages}
+              </span>
+              <button
+                className="secondary small"
+                disabled={currentPage >= totalPages}
+                onClick={() => setPage((p) => p + 1)}
+              >
+                Sau →
+              </button>
+            </div>
+          )}
+        </div>
+      )}
 
       {(creating || editing) && (
         <MenuModal
