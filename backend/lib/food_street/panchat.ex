@@ -26,8 +26,6 @@ defmodule FoodStreet.Panchat do
 
   # URL trong nội dung tin (http/https, tới khoảng trắng đầu tiên).
   @url_regex ~r{https?://\S+}
-  # Tiêu đề preview cho link app (SPA nên OG title cố định cho mọi đợt).
-  @app_link_title "Food Street · Đặt đồ ăn sáng"
 
   @doc """
   Gửi lời mời ăn sáng cho 1 đợt đặt nhóm vào channel Panchat bằng `token` của
@@ -121,7 +119,10 @@ defmodule FoodStreet.Panchat do
 
   @doc """
   Gửi tin báo số dư từng người (tag @all qua `build_body/1`), bằng `token` truyền vào.
-  `users` là danh sách `%User{}` (có `name`, `balance`).
+  `users` là danh sách `%User{}` (có `name`, `balance`, `panchat_user_id`).
+
+  Ai nợ quá 50k (balance < -50.000) và đã có `panchat_user_id` sẽ được mention thật
+  (@Tên, ping) kèm lời nhắc — xem `balance_report_body/2`.
   """
   def send_balance_report(users, date, token) do
     case token do
@@ -132,9 +133,59 @@ defmodule FoodStreet.Panchat do
         if String.trim(token) == "" do
           {:error, :panchat_token_missing}
         else
-          send_channel_message(token, balance_report_text(users, date))
+          post_message(token, balance_report_body(users, date))
         end
     end
+  end
+
+  # Ngưỡng cảnh báo: nợ quá 50k (balance âm hơn -50.000).
+  @warn_threshold Decimal.new("-50000")
+  @warn_message "Không donate sớm thì nhịn nhé"
+
+  @doc """
+  Body tin báo số dư: phần text chung (qua `build_body/1`, có @all + link span) rồi
+  nối thêm mỗi con nợ nặng 1 paragraph mention thật `@Tên #{@warn_message}`.
+
+  Chỉ mention người có `panchat_user_id` (UUID Panchat) — không có thì bỏ qua để
+  tránh gửi span rỗng/hỏng.
+  """
+  def balance_report_body(users, date) do
+    users
+    |> balance_report_text(date)
+    |> build_body()
+    |> Map.update!("text", &(&1 ++ debtor_paragraphs(users)))
+  end
+
+  defp debtor_paragraphs(users) do
+    users
+    |> Enum.filter(&debtor?/1)
+    |> Enum.sort_by(& &1.name)
+    |> Enum.map(&debtor_paragraph/1)
+  end
+
+  # Nợ nặng = có UUID Panchat và balance < -50.000.
+  defp debtor?(%{balance: balance, panchat_user_id: pid})
+       when is_binary(pid) and pid != "" and not is_nil(balance) do
+    Decimal.compare(balance, @warn_threshold) == :lt
+  end
+
+  defp debtor?(_), do: false
+
+  defp debtor_paragraph(user) do
+    mention = "@#{user.name}"
+
+    %{
+      "type" => "paragraph",
+      "content" => "#{mention} #{@warn_message}",
+      "spans" => [
+        %{
+          "type" => "mention",
+          "from" => 0,
+          "to" => utf16_length(mention),
+          "ref" => %{"type" => "user", "user_id" => user.panchat_user_id}
+        }
+      ]
+    }
   end
 
   @doc "Nội dung tin báo số dư quỹ (thuần, không gọi mạng)."
@@ -224,6 +275,11 @@ defmodule FoodStreet.Panchat do
   lệnh không tạo tin). Tách `build_body/1` ra để test thuần payload không gọi mạng.
   """
   def send_channel_message(token, message) do
+    post_message(token, build_body(message))
+  end
+
+  # POST body `SendMessageRequest` đã dựng sẵn vào channel cố định.
+  defp post_message(token, body) do
     url = "#{@base_url}/api/v2/channels/#{@channel_id}/messages"
 
     # `:panchat_req_options` cho phép test tiêm Req.Test plug thay vì gọi mạng thật.
@@ -231,7 +287,7 @@ defmodule FoodStreet.Panchat do
       [
         params: [workspace_id: @workspace_id],
         auth: {:bearer, token},
-        json: build_body(message),
+        json: body,
         receive_timeout: 10_000
       ] ++ Application.get_env(:food_street, :panchat_req_options, [])
 
@@ -250,16 +306,20 @@ defmodule FoodStreet.Panchat do
   end
 
   @doc """
-  Dựng body `SendMessageRequest` cho Pancake Work API v2.
+  Dựng body `SendMessageRequest` cho Pancake Work API v2 (chỉ khoá `text`).
 
   Nội dung là RichText — danh sách paragraph node. Mỗi dòng của `message` thành 1
   paragraph; @all được gắn bằng 1 `mention` span (ref `all`) ở đầu paragraph thứ
   nhất, offset 0..4 ứng với đúng chữ "@all".
 
-  Mọi URL http/https trong nội dung được gắn thêm `link` span để hiển thị link
-  bấm được, kèm 1 `link_previews` cho mỗi URL. `from`/`to` của span là offset
-  theo đơn vị UTF-16 code unit (giống `String.length` của JS mà editor Panchat
-  dùng): ký tự BMP tính 1, emoji ngoài BMP như 📅/👉 tính 2.
+  Mọi URL http/https trong nội dung được gắn thêm 1 `link` span để hiển thị link
+  bấm được. `link_previews` KHÔNG gửi ở request — server tự trích từ URL trong
+  tin (xem schema `StandardMessagePayload`).
+
+  `from`/`to` của span là offset theo đơn vị UTF-16 code unit — đúng như editor
+  Panchat (JS) sinh ra: ký tự BMP tính 1, emoji ngoài BMP như 📅/👉 tính 2. (Doc
+  OpenAPI ghi "grapheme offset" nhưng client thực tế dùng UTF-16, vd link ở
+  offset 71 chứ không phải 69 khi có 2 emoji đứng trước.)
   """
   def build_body(message) do
     [first | rest] = String.split(message, "\n")
@@ -279,20 +339,7 @@ defmodule FoodStreet.Panchat do
       "spans" => [mention_span | link_spans(first_content)]
     }
 
-    rest_paragraphs = Enum.map(rest, &paragraph/1)
-
-    urls =
-      message
-      |> url_matches()
-      |> Enum.map(fn {url, _offset} -> url end)
-      |> Enum.uniq()
-
-    %{
-      "type" => "v1/standard",
-      "text" => [first_paragraph | rest_paragraphs],
-      "attachments" => [],
-      "link_previews" => Enum.map(urls, &link_preview/1)
-    }
+    %{"text" => [first_paragraph | Enum.map(rest, &paragraph/1)]}
   end
 
   # 1 dòng -> paragraph node; chỉ thêm khoá "spans" khi có link để giữ payload gọn.
@@ -331,14 +378,6 @@ defmodule FoodStreet.Panchat do
     string
     |> String.to_charlist()
     |> Enum.reduce(0, fn cp, acc -> acc + if(cp > 0xFFFF, do: 2, else: 1) end)
-  end
-
-  defp link_preview(url) do
-    %{
-      "url" => url,
-      "title" => @app_link_title,
-      "icon" => "#{frontend_url()}/favicon.svg"
-    }
   end
 
   defp frontend_url do

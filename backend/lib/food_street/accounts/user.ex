@@ -5,9 +5,22 @@ defmodule FoodStreet.Accounts.User do
   @primary_key {:id, :binary_id, autogenerate: true}
   @foreign_key_type :binary_id
   @derive {Jason.Encoder,
-           only: [:id, :name, :username, :email, :role, :balance, :active, :inserted_at]}
+           only: [
+             :id,
+             :name,
+             :username,
+             :email,
+             :role,
+             :balance,
+             :active,
+             :panchat_user_id,
+             :inserted_at
+           ]}
 
   @roles ~w(user admin)
+
+  # UUID chuẩn (Panchat user_id), validate khi admin nhập tay để mention khỏi lệch.
+  @uuid_regex ~r/\A[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\z/i
 
   schema "users" do
     field :name, :string
@@ -17,6 +30,7 @@ defmodule FoodStreet.Accounts.User do
     field :role, :string, default: "user"
     field :balance, :decimal, default: Decimal.new(0)
     field :active, :boolean, default: true
+    field :panchat_user_id, :string
 
     field :password, :string, virtual: true
 
@@ -26,23 +40,25 @@ defmodule FoodStreet.Accounts.User do
   @doc "Changeset for creating a user (admin creates users)."
   def create_changeset(user, attrs) do
     user
-    |> cast(attrs, [:name, :username, :email, :role, :active, :password, :balance])
+    |> cast(attrs, [:name, :username, :email, :role, :active, :password, :balance, :panchat_user_id])
     |> validate_required([:name, :username, :email, :password])
     |> validate_inclusion(:role, @roles)
     |> validate_username()
     |> validate_email()
     |> validate_password()
+    |> validate_panchat_user_id()
     |> put_password_hash()
   end
 
   @doc "Changeset for updating a user (admin)."
   def update_changeset(user, attrs) do
     user
-    |> cast(attrs, [:name, :username, :email, :role, :active, :password])
+    |> cast(attrs, [:name, :username, :email, :role, :active, :password, :panchat_user_id])
     |> validate_required([:name, :username, :email])
     |> validate_inclusion(:role, @roles)
     |> validate_username()
     |> validate_email()
+    |> validate_panchat_user_id()
     |> maybe_validate_password()
     |> maybe_put_password_hash()
   end
@@ -76,6 +92,16 @@ defmodule FoodStreet.Accounts.User do
     )
     |> validate_length(:username, min: 3, max: 30)
     |> unique_constraint(:username)
+  end
+
+  # Panchat user_id là tùy chọn: chuỗi rỗng -> nil; nếu có thì phải đúng dạng UUID.
+  defp validate_panchat_user_id(changeset) do
+    changeset
+    |> update_change(:panchat_user_id, fn
+      nil -> nil
+      value -> if String.trim(value) == "", do: nil, else: String.trim(value)
+    end)
+    |> validate_format(:panchat_user_id, @uuid_regex, message: "phải là UUID Panchat hợp lệ")
   end
 
   defp validate_email(changeset) do

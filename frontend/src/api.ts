@@ -12,6 +12,8 @@ export interface User {
   role: Role;
   balance: string;
   active: boolean;
+  /** UUID user Panchat — để mention thật (@Tên) khi báo số dư. */
+  panchat_user_id?: string | null;
   inserted_at?: string;
 }
 

@@ -1253,6 +1253,7 @@ const emptyUser = {
   password: "",
   role: "user" as const,
   active: true,
+  panchat_user_id: "",
 };
 
 function UsersTab() {
@@ -1450,6 +1451,14 @@ function UserModal({
               <option value="0">Khóa</option>
             </select>
           </div>
+        </div>
+        <div className="field">
+          <label>Panchat user ID (tùy chọn)</label>
+          <input
+            value={form.panchat_user_id || ""}
+            onChange={(e) => setForm({ ...form, panchat_user_id: e.target.value })}
+            placeholder="UUID Panchat để mention @Tên khi nợ quá 50k"
+          />
         </div>
         <div className="row" style={{ justifyContent: "flex-end" }}>
           <button type="button" className="secondary" onClick={onClose}>

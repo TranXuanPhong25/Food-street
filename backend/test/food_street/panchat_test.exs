@@ -133,6 +133,48 @@ defmodule FoodStreet.PanchatTest do
     end
   end
 
+  describe "balance_report_body/2 — mention con nợ nặng" do
+    @uid_a "550e8400-e29b-41d4-a716-446655440000"
+    @uid_b "550e8400-e29b-41d4-a716-446655440001"
+
+    defp user_mentions(body) do
+      Enum.filter(body["text"], fn p ->
+        Enum.any?(p["spans"] || [], fn s ->
+          s["type"] == "mention" and get_in(s, ["ref", "type"]) == "user"
+        end)
+      end)
+    end
+
+    test "mention thật ai nợ quá 50k VÀ có panchat_user_id" do
+      users = [
+        # Nợ 60k + có UUID -> được mention.
+        %User{name: "An", balance: Decimal.new("-60000"), panchat_user_id: @uid_a},
+        # Nợ 30k (chưa quá 50k) -> bỏ qua dù có UUID.
+        %User{name: "Bình", balance: Decimal.new("-30000"), panchat_user_id: @uid_b},
+        # Nợ 70k nhưng thiếu UUID -> bỏ qua.
+        %User{name: "Cường", balance: Decimal.new("-70000"), panchat_user_id: nil}
+      ]
+
+      body = Panchat.balance_report_body(users, ~D[2026-07-02])
+
+      assert [para] = user_mentions(body)
+      assert para["content"] == "@An Không donate sớm thì nhịn nhé"
+
+      assert [%{"type" => "mention", "from" => 0, "to" => 3, "ref" => ref}] = para["spans"]
+      assert ref == %{"type" => "user", "user_id" => @uid_a}
+    end
+
+    test "nợ đúng 50k (biên) không bị tag — chỉ 'quá 50k' mới tag" do
+      users = [%User{name: "An", balance: Decimal.new("-50000"), panchat_user_id: @uid_a}]
+      assert user_mentions(Panchat.balance_report_body(users, ~D[2026-07-02])) == []
+    end
+
+    test "không có con nợ nặng thì body giữ nguyên phần text chung" do
+      users = [%User{name: "An", balance: Decimal.new("50000"), panchat_user_id: @uid_a}]
+      assert user_mentions(Panchat.balance_report_body(users, ~D[2026-07-02])) == []
+    end
+  end
+
   describe "build_body/1" do
     test "dựng RichText SendMessageRequest với @all mention span" do
       body = Panchat.build_body("hello\nworld")
@@ -149,13 +191,10 @@ defmodule FoodStreet.PanchatTest do
       assert [%{"type" => "paragraph", "content" => "world"}] = rest
     end
 
-    test "gắn link span + link_previews khi nội dung chứa URL, offset theo UTF-16" do
+    test "gắn link span khi nội dung chứa URL, offset theo UTF-16 code unit" do
       url = "https://dev.pancake.vn:3200/app?group=abc"
-      # Dòng có 2 emoji trước URL (📅 và 👉) -> mỗi emoji tính 2 UTF-16 code unit.
+      # Dòng có emoji 👉 trước URL -> tính 2 UTF-16 code unit.
       body = Panchat.build_body("Đã chốt (📅 nay)\n6 đơn 👉 #{url}")
-
-      assert body["type"] == "v1/standard"
-      assert body["attachments"] == []
 
       assert [_first, %{"content" => content, "spans" => spans}] = body["text"]
 
@@ -165,14 +204,14 @@ defmodule FoodStreet.PanchatTest do
       assert to == from + String.length(url)
       assert content =~ url
 
-      assert [%{"url" => ^url, "title" => _, "icon" => icon}] = body["link_previews"]
-      assert icon =~ "/favicon.svg"
+      # link_previews KHÔNG gửi ở request — server tự trích từ URL.
+      refute Map.has_key?(body, "link_previews")
+      refute Map.has_key?(body, "type")
     end
 
-    test "không có link thì không thêm link span, link_previews rỗng" do
+    test "không có link thì không thêm khoá spans cho paragraph thường" do
       body = Panchat.build_body("chỉ có chữ\nkhông link")
 
-      assert body["link_previews"] == []
       assert [first, second] = body["text"]
       # paragraph đầu chỉ còn mention span, paragraph sau không có khoá spans.
       assert [%{"type" => "mention"}] = first["spans"]
