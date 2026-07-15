@@ -208,15 +208,21 @@ menu_images = %{
     "https://content.pancake.vn/2-2607/2026/7/1/b8763f752369b0c584278a37cf4f9acfb5d8ab17.jpg",
   "Trà sữa Caramel" =>
     "https://content.pancake.vn/2-2607/2026/7/1/76444595c49c6df222e021e8716d7305046e5146.jpg",
-  "Trà sữa trân châu" =>
+  "Trà sữa trân châu M" =>
+    "https://content.pancake.vn/2-2607/2026/7/1/c7e350303b8b2af58b30a8e4f2528f969ed1b0f3.jpg",
+  "Trà sữa trân châu L" =>
     "https://content.pancake.vn/2-2607/2026/7/1/c7e350303b8b2af58b30a8e4f2528f969ed1b0f3.jpg",
   "Sữa thạch Kiwi Kiwi" =>
     "https://content.pancake.vn/2-2607/2026/7/1/b7be976b0fa53b2fab67792b670536b3789a6ed5.jpg",
   "Sữa thạch Dâu tây" =>
     "https://content.pancake.vn/2-2607/2026/7/1/1a95e4dcdb59ac7059fcf1668dd7402fca9063bb.jpg",
-  "Trà sữa 2J" =>
+  "Trà sữa 2J M" =>
     "https://content.pancake.vn/2-2607/2026/7/1/70df487622ebd99768c93a7974e4d026872f7770.jpg",
-  "Trà sữa thạch dừa" =>
+  "Trà sữa 2J L" =>
+    "https://content.pancake.vn/2-2607/2026/7/1/70df487622ebd99768c93a7974e4d026872f7770.jpg",
+  "Trà sữa thạch dừa M" =>
+    "https://content.pancake.vn/2-2607/2026/7/1/2079ad9fb60e3252270001f0dd2e12710a6f4873.jpg",
+  "Trà sữa thạch dừa L" =>
     "https://content.pancake.vn/2-2607/2026/7/1/2079ad9fb60e3252270001f0dd2e12710a6f4873.jpg",
   "Trà sữa đường đen" =>
     "https://content.pancake.vn/2-2607/2026/7/1/b8763f752369b0c584278a37cf4f9acfb5d8ab17.jpg",
@@ -311,16 +317,24 @@ menu_images = %{
   # Mixue — Trà sữa
   %{"name" => "Trà sữa trân châu đường đen", "price" => "25000", "category_id" => mixue.id},
   %{"name" => "Trà sữa Caramel", "price" => "25000", "category_id" => mixue.id},
-  %{"name" => "Trà sữa trân châu", "price" => "30000", "category_id" => mixue.id},
-  %{"name" => "Sữa thạch Kiwi Kiwi", "price" => "25000", "category_id" => mixue.id},
-  %{"name" => "Sữa thạch Dâu tây", "price" => "25000", "category_id" => mixue.id},
+  %{"name" => "Trà sữa trân châu M", "price" => "25000", "category_id" => mixue.id},
+  %{"name" => "Trà sữa trân châu L", "price" => "30000", "category_id" => mixue.id},
+  %{"name" => "Sữa thạch Kiwi Kiwi", "price" => "22000", "category_id" => mixue.id},
+  %{"name" => "Sữa thạch Dâu tây", "price" => "22000", "category_id" => mixue.id},
   %{
-    "name" => "Trà sữa 2J",
+    "name" => "Trà sữa 2J M",
+    "description" => "Chọn 2 topping",
+    "price" => "25000",
+    "category_id" => mixue.id
+  },
+  %{
+    "name" => "Trà sữa 2J L",
     "description" => "Chọn 2 topping",
     "price" => "30000",
     "category_id" => mixue.id
   },
-  %{"name" => "Trà sữa thạch dừa", "price" => "25000", "category_id" => mixue.id},
+  %{"name" => "Trà sữa thạch dừa M", "price" => "25000", "category_id" => mixue.id},
+  %{"name" => "Trà sữa thạch dừa L", "price" => "30000", "category_id" => mixue.id},
   %{"name" => "Trà sữa đường đen", "price" => "30000", "category_id" => mixue.id},
   %{"name" => "Trà sữa O-coco", "price" => "28000", "category_id" => mixue.id},
   # Mixue — Cà phê
@@ -328,7 +342,7 @@ menu_images = %{
   %{"name" => "Mocha", "price" => "25000", "category_id" => mixue.id},
   %{"name" => "Latte", "price" => "22000", "category_id" => mixue.id},
   %{"name" => "Cafe Latte Kem tươi", "price" => "25000", "category_id" => mixue.id},
-  %{"name" => "Cafe Mocha Kem tươi", "price" => "22000", "category_id" => mixue.id},
+  %{"name" => "Cafe Mocha Kem tươi", "price" => "25000", "category_id" => mixue.id},
   %{"name" => "Cafe Latte Caramel Kem tươi", "price" => "25000", "category_id" => mixue.id},
   # Mixue — Đặc biệt (banner)
   %{"name" => "Trà chanh lô hội", "price" => "17000", "category_id" => mixue.id},
