@@ -1,10 +1,14 @@
 defmodule FoodStreet.Repo.Migrations.UpdateMixuePrices do
   @moduledoc """
-  Cập nhật giá các món Mixue theo bảng giá mới. Món nào chưa có trong DB
-  (ví dụ các bản tách size M/L) thì tạo mới trong danh mục "Mixue".
+  Cập nhật menu Mixue theo bảng giá mới (menu hè). Với mỗi món trong @items:
+  giá đã có thì update, món chưa có (món mới / bản tách size M/L) thì tạo mới
+  trong danh mục "Mixue".
+
+  Các món không còn trong menu mới (@discontinued) được ẩn đi bằng
+  `available = false` thay vì xoá, để không vỡ khoá ngoại với đơn hàng cũ.
 
   Không đụng tới ảnh (image_url). Forward-only, idempotent theo tên món
-  (khớp với seeds.exs). `down` là no-op vì không lưu lại giá cũ.
+  (khớp với seeds.exs). `down` là no-op vì không lưu lại trạng thái cũ.
   """
   use Ecto.Migration
 
@@ -12,48 +16,64 @@ defmodule FoodStreet.Repo.Migrations.UpdateMixuePrices do
   @items [
     # Kem
     {"Kem ốc quế", 10_000, nil},
-    {"Lucky sundae O-coco", 25_000, nil},
     {"Super Sundae trân châu đường đen", 25_000, nil},
-    {"Lucky sundae dâu tây", 25_000, nil},
-    {"Super Sundae kiwi lô hội", 25_000, nil},
-    {"Super Sundae đào hồng", 25_000, nil},
     {"Super Sundae xoài", 25_000, nil},
+    {"Super Sundae đào hồng", 25_000, nil},
     {"Super Sundae đào vàng", 25_000, nil},
+    {"Lucky sundae O-coco", 25_000, nil},
+    {"Lucky sundae dâu tây", 25_000, nil},
     # Trà hoa quả
+    {"Liên minh cam xoài", 25_000, nil},
     {"Nước chanh tươi lạnh", 15_000, nil},
-    {"Trà đào dâu tây", 22_000, nil},
-    {"Trà xoài chanh leo", 22_000, nil},
-    {"Chanh leo bách hương", 22_000, nil},
-    {"Trà xanh chanh", 15_000, nil},
-    {"Trà xanh kiwi", 22_000, nil},
-    {"Trà đào bigsize", 22_000, nil},
+    {"Trà xanh chanh", 17_000, nil},
+    {"Trà chanh lô hội", 20_000, nil},
+    {"Chanh leo bách hương", 25_000, nil},
     {"Trà xanh hoa đào", 22_000, nil},
-    {"Dương chi cam lộ", 28_000, nil},
+    {"Trà cam dâu tây", 25_000, nil},
+    {"Trà đào bigsize", 22_000, nil},
+    {"Trà xoài chanh leo", 25_000, nil},
+    {"Trà đào dâu tây", 22_000, nil},
+    {"Trà cam vàng 9999", 25_000, nil},
     # Trà sữa (món có 2 size → tách M 25.000đ / L 30.000đ)
     {"Trà sữa trân châu đường đen", 25_000, nil},
-    {"Trà sữa Caramel", 25_000, nil},
-    {"Trà sữa trân châu M", 25_000, nil},
-    {"Trà sữa trân châu L", 30_000, nil},
-    {"Sữa thạch Kiwi Kiwi", 22_000, nil},
-    {"Sữa thạch Dâu tây", 22_000, nil},
+    {"Trà sữa O-coco", 28_000, nil},
     {"Trà sữa 2J M", 25_000, "Chọn 2 topping"},
     {"Trà sữa 2J L", 30_000, "Chọn 2 topping"},
+    {"Trà sữa Caramel", 25_000, nil},
+    {"Trà sữa hoa nhài", 20_000, nil},
+    {"Trà sữa trân châu M", 25_000, nil},
+    {"Trà sữa trân châu L", 30_000, nil},
     {"Trà sữa thạch dừa M", 25_000, nil},
     {"Trà sữa thạch dừa L", 30_000, nil},
-    {"Trà sữa đường đen", 30_000, nil},
-    {"Trà sữa O-coco", 28_000, nil},
+    {"Trà sữa thạch đường đen M", 25_000, nil},
+    {"Trà sữa thạch đường đen L", 30_000, nil},
+    {"Dương chi cam lộ", 25_000, nil},
+    {"Sữa thạch Dâu tây", 22_000, nil},
     # Cà phê
-    {"Latte đường đen", 25_000, nil},
-    {"Mocha", 25_000, nil},
-    {"Latte", 22_000, nil},
-    {"Cafe Latte Kem tươi", 25_000, nil},
-    {"Cafe Mocha Kem tươi", 25_000, nil},
-    {"Cafe Latte Caramel Kem tươi", 25_000, nil},
+    {"Americano kem", 28_000, nil},
+    {"Cafe Latte Kem tươi", 30_000, nil},
+    {"Americano", 22_000, nil},
+    {"Cafe Latte", 28_000, nil},
+    {"Cafe latte caramel hạt dẻ", 28_000, nil},
+    {"Americano chanh", 28_000, nil},
+    {"Americano cam", 28_000, nil},
     # Đặc biệt (banner)
-    {"Trà chanh lô hội", 17_000, nil},
-    {"Trà chanh dâu tây", 25_000, nil},
-    {"Trà sữa bá vương", 30_000, nil},
-    {"Hồng trà Latte", 25_000, nil}
+    {"Trà sữa bá vương", 30_000, nil}
+  ]
+
+  # Món cũ không còn trong menu mới → ẩn (available = false), không xoá.
+  @discontinued [
+    "Super Sundae kiwi lô hội",
+    "Trà xanh kiwi",
+    "Sữa thạch Kiwi Kiwi",
+    "Trà sữa đường đen",
+    "Latte đường đen",
+    "Mocha",
+    "Latte",
+    "Cafe Mocha Kem tươi",
+    "Cafe Latte Caramel Kem tươi",
+    "Trà chanh dâu tây",
+    "Hồng trà Latte"
   ]
 
   def up do
@@ -86,6 +106,11 @@ defmodule FoodStreet.Repo.Migrations.UpdateMixuePrices do
           )
         end
       end
+
+      repo().query!(
+        "UPDATE menu_items SET available = false, updated_at = $1 WHERE name = ANY($2)",
+        [now, @discontinued]
+      )
     end)
   end
 
